@@ -1,22 +1,2768 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <link rel="stylesheet" href="styles.css" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus App</title>
-        <script type="module" src="/main.js" defer></script>
-    </head>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>iBook - 智能记账统计</title>
+    <style>
+        :root {
+            --primary-blue: #007AFF;
+            --light-blue: #5fa8ff;
+            --expense-red: #FF3B30;
+            --income-green: #34C759;
+            --slider-bg: rgba(0, 122, 255, 0.1);
+        }
 
-    <body>
-        <main class="container">
-            <h1>Welcome to PakePlus</h1>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, "PingFang SC", sans-serif;
+        }
 
-            <form class="row" id="greet-form">
-                <input id="greet-input" placeholder="Enter a name..." />
-                <button type="submit">Greet</button>
-            </form>
-            <p id="greet-msg"></p>
-        </main>
-    </body>
+        body {
+            background: linear-gradient(150deg, #f8f9ff 0%, #f1f3ff 100%);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 滚动容器 */
+        .scroll-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px 15px 100px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* 核心统计区域 */
+        .stats-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            flex: 1;
+        }
+
+        .stat-card {
+            position: relative;
+            border-radius: 20px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+            background: white;
+            flex: 1;
+            gap: 15px;
+        }
+
+        /* 统一所有切换卡片高度为56px */
+        .date-tabs,
+        .income-expense-tabs,
+        .chart-tabs,
+        .type-button {
+            height: 65px !important;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background: white;
+        }
+
+        /* 日期选项卡 */
+        .date-tabs {
+            padding: 4px;
+        }
+
+        .toggle-track {
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            background: transparent;
+            border-radius: 12px;
+            padding: 0;
+            height: 100%;
+        }
+
+        .toggle-option {
+            color: #666;
+            font-size: 16px;
+            font-weight: 600;
+            z-index: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            transition: transform 0.1s ease-out;
+        }
+
+        .toggle-option:active {
+            transform: scale(0.85);
+        }
+
+        .toggle-option.active {
+            color: var(--primary-blue);
+        }
+
+        .toggle-slider {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 33.33%;
+            height: 100%;
+            background: var(--slider-bg);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        /* 日期选项卡图标变大 */
+        .date-tabs .toggle-option i {
+            font-size: 28px;
+            transition: all 0.3s ease;
+        }
+
+        .date-tabs .toggle-option.active i {
+            transform: scale(1.2);
+        }
+
+        /* 日期导航器 */
+        .date-navigator {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            width: 100%;
+            height: 100px;
+            padding: 0;
+        }
+
+        .date-nav-btn {
+            flex: 0 0 56px;
+            height: 100%; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--light-blue);
+            border-radius: 12px;
+            border: none;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease, transform 0.1s ease-out;
+            padding: 0;
+        }
+
+        .date-nav-btn:active {
+            transform: scale(0.90);
+        }
+
+        .date-nav-btn svg {
+            width: 32px;
+            height: 32px;
+        }
+
+        .date-nav-btn:hover {
+            background: var(--primary-blue);
+        }
+
+        /* 日期显示样式 */
+        .date-display {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: var(--light-blue);
+            border-radius: 14px;
+            color: white;
+            font-family: 'Nunito', sans-serif;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        /* 修复月模式显示问题 */
+        .date-display.month-mode {
+            display: flex;
+            flex-direction: row;
+        }
+        
+        .date-display.month-mode .date-left-section {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        .date-display.month-mode .date-year {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: min(5vw, 24px);
+            font-weight: 600;
+            border-bottom: 1px solid rgba(255,255,255,0.6);
+        }
+        
+        .date-display.month-mode .date-month {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: min(5vw, 24px);
+            font-weight: 600;
+        }
+        
+        .date-display.month-mode .date-right-section {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-left: 1px solid rgba(255,255,255,0.6);
+        }
+        
+        .date-display.month-mode .date-day {
+            font-size: min(15vw, 60px);
+            font-weight: 800;
+            text-align: center;
+        }
+
+        /* 竖屏模式下的日期布局 */
+        @media (orientation: portrait) {
+            .date-display.day-mode {
+                display: flex;
+                flex-direction: row;
+            }
+            
+            .date-left-section {
+                flex: 1;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                position: relative;
+            }
+            
+            .date-year {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: min(5vw, 24px);
+                font-weight: 600;
+                border-bottom: 1px solid rgba(255,255,255,0.6);
+            }
+            
+            .date-month {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: min(5vw, 24px);
+                font-weight: 600;
+            }
+            
+            .date-right-section {
+                flex: 1;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-left: 1px solid rgba(255,255,255,0.6);
+            }
+            
+            .date-day {
+                font-size: min(15vw, 60px);
+                font-weight: 800;
+                text-align: center;
+            }
+
+            .date-year-text {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: min(5vw, 24px);
+                font-weight: 600;
+            }
+
+            .date-month-large {
+                font-size: min(15vw, 60px);
+                font-weight: 800;
+                text-align: center;
+            }
+
+            .date-year-digit-container {
+                display: flex;
+                flex-direction: row;
+                width: 100%;
+                height: 100%;
+            }
+
+            .date-year-digit-container .date-year-digit {
+                border-left: 1px solid rgba(255,255,255,0.6);
+            }
+
+            .date-year-digit-container .date-year-digit:first-child {
+                border-left: none;
+            }
+
+            .date-year-digit {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: min(15vw, 60px);
+                font-weight: 800;
+            }
+        }
+
+        /* 非日模式或横屏模式保持原样 */
+        .date-display:not(.day-mode):not(.month-mode):not(.year-mode) {
+            flex-direction: column;
+            font-size: min(8vw, 36px);
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+        
+        @media (orientation: landscape) {
+            .date-display {
+                flex-direction: column;
+                font-size: min(8vw, 36px);
+                white-space: nowrap;
+                text-overflow: ellipsis;
+            }
+        }
+
+        /* 图表切换卡片 */
+        .chart-tabs {
+            padding: 4px;
+        }
+
+        .chart-toggle-track {
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            background: transparent;
+            border-radius: 12px;
+            padding: 0;
+            height: 100%;
+        }
+
+        .chart-toggle-option {
+            color: #666;
+            z-index: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            font-size: 28px;
+            transition: transform 0.1s ease-out;
+        }
+
+        .chart-toggle-option:active {
+            transform: scale(0.85);
+        }
+
+        .chart-toggle-option.active {
+            color: var(--primary-blue);
+        }
+
+        .chart-toggle-slider {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 33.33%;
+            height: 100%;
+            background: var(--slider-bg);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        /* 图表展示区域 */
+        .chart-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            flex: 1;
+            min-height: 300px;
+            overflow: hidden;
+        }
+
+        .chart-content {
+            display: none;
+            flex: 1;
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 20px;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 18px;
+            font-weight: 500;
+            position: relative;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .chart-content.active {
+            display: flex;
+        }
+
+        .chart-content-inner {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-width: 0;
+        }
+
+        /* 优化柱状图容器样式 */
+        .bar-chart-container {
+            position: relative;
+            height: 350px !important;
+            margin-top: 0;
+            background: white;
+            border-radius: 16px;
+            padding: 15px;
+            /* 与其他卡片保持一致的阴影效果 */
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+            /* 确保内部canvas不会覆盖边缘 */
+            overflow: visible;
+        }
+        
+        /* 月柱状图容器样式 */
+        .month-bar-chart-container {
+            position: relative;
+            height: 350px !important;
+            margin-top: 0;
+            background: white;
+            border-radius: 16px;
+            padding: 15px;
+            /* 与其他卡片保持一致的阴影效果 */
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+            /* 确保内部canvas不会覆盖边缘 */
+            overflow: visible;
+        }
+        
+        /* 年柱状图容器样式 */
+        .year-bar-chart-container {
+            position: relative;
+            height: 350px !important;
+            margin-top: 0;
+            background: white;
+            border-radius: 16px;
+            padding: 15px;
+            /* 与其他卡片保持一致的阴影效果 */
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+            /* 确保内部canvas不会覆盖边缘 */
+            overflow: visible;
+        }
+        
+        /* 确保所有模式下柱状图高度固定为350px */
+        .bar-chart-container,
+        .month-bar-chart-container,
+        .year-bar-chart-container {
+            min-height: 350px !important;
+        }
+        
+        @media (orientation: portrait) {
+            .bar-chart-container,
+            .month-bar-chart-container,
+            .year-bar-chart-container {
+                height: 350px !important;
+                min-height: 350px !important;
+                max-height: 350px !important;
+            }
+        }
+        
+        @media (orientation: landscape) {
+            .bar-chart-container,
+            .month-bar-chart-container,
+            .year-bar-chart-container {
+                height: 350px !important;
+                min-height: 350px !important;
+                max-height: 350px !important;
+            }
+        }
+
+        /* 日历图容器样式 */
+        .calendar-chart-container {
+            position: relative;
+            height: 350px;
+            margin-top: 0;
+            background: white;
+            border-radius: 16px;
+            padding: 15px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+
+        .chart-card {
+            width: 100%;
+            height: 100%;
+            border-radius: 12px;
+            padding: 0;
+        }
+
+        /* 月日历样式 */
+        .monthly-calendar-card {
+            background-color: white;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .monthly-calendar-card.fade-out {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+
+        /* 年日历样式 */
+        .annual-calendar-card {
+            background-color: white;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .annual-calendar-card.fade-out {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+
+        .months-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 15px;
+            text-align: center;
+            height: 100%;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scroll-behavior: smooth;
+            padding: 0;
+            cursor: grab;
+            user-select: none;
+            -webkit-overflow-scrolling: touch;
+            box-sizing: border-box;
+            /* 优化触摸滚动体验 */
+            touch-action: manipulation; /* 允许浏览器原生滚动和缩放 */
+            overscroll-behavior: contain;
+            /* 减少滚动阻力 */
+            scroll-snap-type: x mandatory;
+            scroll-padding: 0;
+        }
+
+        /* 横屏模式下的年度日历特殊样式 */
+        @media (orientation: landscape) {
+            .months-grid {
+                grid-template-columns: repeat(3, 1fr);
+                grid-template-rows: repeat(4, 1fr);
+                overflow-x: auto;
+                overflow-y: auto;
+                min-width: 100%;
+                min-height: 100%;
+                scroll-snap-type: both mandatory;
+                touch-action: manipulation;
+                overscroll-behavior: contain;
+                scroll-padding: 0;
+            }
+            
+            .month-card {
+                scroll-snap-align: start;
+                min-width: 200px;
+                min-height: 150px;
+            }
+        }
+
+        .months-grid:active {
+            cursor: grabbing;
+        }
+
+        .months-grid::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+
+        .months-grid::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .months-grid::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+
+        .months-grid::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        /* 月度日历滚动条样式 - 与年度日历保持一致 */
+        .monthly-calendar-card::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+
+        .monthly-calendar-card::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .monthly-calendar-card::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+
+        .monthly-calendar-card::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        .month-card {
+            display: flex;
+            justify-content: flex-start;
+            align-items: flex-start;
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-height: 120px;
+            min-width: 140px;
+            width: 100%;
+            height: 100%;
+        }
+
+        .month-1 { background-color: #ffcccb; }
+        .month-2 { background-color: #ffe0b2; }
+        .month-3 { background-color: #fff9c4; }
+        .month-4 { background-color: #c8e6c9; }
+        .month-5 { background-color: #b3e5fc; }
+        .month-6 { background-color: #c5cae9; }
+        .month-7 { background-color: #e1bee7; }
+        .month-8 { background-color: #c4fce4; }
+        .month-9 { background-color: #9fffe1; }
+        .month-10 { background-color: #ffaaaa; }
+        .month-11 { background-color: #dcedc8; }
+        .month-12 { background-color: #bbdefb; }
+
+        .weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            margin-bottom: 10px;
+            text-align: center;
+            gap: 4px;
+        }
+
+        .weekday {
+            padding: 8px 0;
+            font-weight: 500;
+            color: #333;
+            font-size: 0.9em;
+            min-width: 80px;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .days-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            height: calc(100% - 50px);
+        }
+
+        /* 月度日历滚动 */
+        .monthly-calendar-card {
+             overflow-x: auto;
+             overflow-y: auto;
+         }
+
+        /* 竖屏模式下的月度日历滚动 */
+        @media (orientation: portrait) {
+            
+            .weekdays {
+                min-width: 560px; /* 7 * 80px */
+                grid-template-columns: repeat(7, minmax(80px, 1fr));
+            }
+            
+            .weekday {
+                min-width: 80px;
+            }
+            
+            .days-grid {
+                min-width: 560px; /* 7 * 80px */
+                grid-template-columns: repeat(7, minmax(80px, 1fr));
+            }
+        }
+
+        .day {
+            display: flex;
+            justify-content: flex-start;
+            align-items: flex-start;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 0.8em;
+            font-weight: 500;
+            color: #333;
+            background-color: #f9f9f9;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-height: 80px;
+            min-width: 80px;
+        }
+
+        .day.current-month {
+            color: black;
+        }
+
+        .day.sun { background-color: #ffcccb; }
+        .day.mon { background-color: #ffe0b2; }
+        .day.tue { background-color: #fff9c4; }
+        .day.wed { background-color: #c8e6c9; }
+        .day.thu { background-color: #b3e5fc; }
+        .day.fri { background-color: #c5cae9; }
+        .day.sat { background-color: #e1bee7; }
+
+        
+
+        .day.other-month {
+            color: #ccc;
+            background-color: #f9f9f9;
+        }
+
+        .day.current-month {
+            color: black;
+        }
+
+        .day.sun { background-color: #ffcccb; }
+        .day.mon { background-color: #ffe0b2; }
+        .day.tue { background-color: #fff9c4; }
+        .day.wed { background-color: #c8e6c9; }
+        .day.thu { background-color: #b3e5fc; }
+        .day.fri { background-color: #c5cae9; }
+        .day.sat { background-color: #e1bee7; }
+
+        
+
+        .day.other-month {
+            color: #ccc;
+            background-color: #f9f9f9;
+        }
+
+
+        
+        .bar-chart-time-switcher {
+            display: flex;
+            background: #f1f5f9;
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+        
+        .bar-chart-btn {
+            flex: 1;
+            padding: 8px 0;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .bar-chart-btn.active {
+            background: white;
+            color: var(--primary-blue);
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+
+        /* 收入支出切换卡片 */
+        .income-expense-tabs {
+            padding: 4px;
+        }
+
+        .income-expense-tabs .toggle-track {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .income-expense-tabs .toggle-option {
+            font-size: 28px;
+        }
+
+        .income-expense-tabs .toggle-option i {
+            transition: all 0.3s ease;
+        }
+
+        .income-expense-tabs .toggle-option.active i {
+            transform: scale(1.2);
+        }
+
+        .income-expense-tabs .toggle-option[data-type="income"] i {
+            color: var(--income-green);
+        }
+
+        .income-expense-tabs .toggle-option[data-type="expense"] i {
+            color: var(--expense-red);
+        }
+
+        /* 筛选行布局 */
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            width: 100%;
+            height: 65px;
+        }
+
+        /* 筛选类型按钮 */
+        .type-button {
+            flex: 1;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--primary-blue);
+            transition: all 0.2s ease, transform 0.1s ease-out;
+            padding: 0 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background: white;
+        }
+
+        .type-button:active {
+            transform: scale(0.95);
+        }
+
+        .type-button:hover {
+            background: #f5f5f5;
+        }
+
+        .type-button i {
+            font-size: 20px;
+        }
+
+        /* 收入支出分离卡片 */
+        .income-expense-separator {
+            flex: 1;
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background: white;
+            height: 65px;
+        }
+
+        .separator-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--primary-blue);
+        }
+
+        .separator-header i {
+            font-size: 20px;
+        }
+
+        /* 开关样式 */
+        .separator-switch {
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .switch-input {
+            display: none;
+        }
+
+        .switch-label {
+            display: block;
+            width: 52px;
+            height: 30px;
+            background: #ddd;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .switch-slider {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .switch-input:checked + .switch-label {
+            background: var(--primary-blue);
+        }
+
+        .switch-input:checked + .switch-label .switch-slider {
+            transform: translateX(22px);
+        }
+
+        /* 禁用状态样式 */
+        .income-expense-tabs.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .income-expense-tabs.disabled .toggle-option {
+            cursor: not-allowed;
+        }
+
+        /* 竖屏模式适配 */
+        @media (orientation: portrait) {
+            .bar-chart-container {
+                height: 400px;
+                min-height: 350px;
+            }
+            
+            .chart-container {
+                min-height: 400px;
+                max-height: none;
+            }
+        }
+        
+        /* 当屏幕宽度较小时隐藏收支分离文字 */
+        @media (max-width: 400px) {
+            .separator-header span {
+                display: none;
+            }
+        }
+        
+        /* 当收支分离容器宽度不足时隐藏文字 */
+        @media (orientation: portrait) and (max-width: 360px) {
+            .separator-header span {
+                display: none;
+            }
+        }
+
+        /* 横屏适配 */
+        @media (orientation: landscape) {
+            body {
+                overflow: auto;
+            }
+            
+            .stats-container {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+                grid-template-rows: 1fr;
+                gap: 15px;
+                min-height: calc(100vh - 85px - 15px - 15px);
+            }
+            
+            .stat-card {
+                height: 100%;
+                min-width: 0;
+                overflow: hidden;
+            }
+            
+            .date-nav-btn {
+                flex: 0 0 85px;
+            }
+
+            .date-tabs,
+            .income-expense-tabs,
+            .chart-tabs,
+            .type-button,
+            .filter-row {
+                height: 75px !important;
+            }
+
+            /* 横屏模式下的筛选行适配 */
+            .filter-row {
+                gap: 10px;
+            }
+
+            /* 横屏模式下的收入支出分离卡片适配 */
+            .income-expense-separator {
+                height: 75px;
+                padding: 6px 12px;
+                gap: 10px;
+                justify-content: center;
+            }
+
+            .separator-header {
+                font-size: 16px;
+                gap: 10px;
+            }
+
+            .separator-header i {
+                font-size: 20px;
+            }
+
+            .switch-label {
+                width: 46px;
+                height: 26px;
+                border-radius: 13px;
+            }
+
+            .switch-slider {
+                width: 20px;
+                height: 20px;
+                top: 3px;
+                left: 3px;
+            }
+
+            .switch-input:checked + .switch-label .switch-slider {
+                transform: translateX(20px);
+            }
+
+            .date-navigator {
+                height: 120px;
+            }
+
+            .date-nav-btn {
+                flex: 0 0 100px;
+            }
+
+            .date-display {
+                font-size: min(6vw, 36px);
+            }
+
+            /* Added for landscape day-mode */
+            .date-display.day-mode {
+                display: flex;
+                flex-direction: row;
+            }
+
+            .date-display.day-mode .date-left-section {
+                flex: 1;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                position: relative;
+            }
+            
+            .date-display.day-mode .date-year {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: min(3.5vw, 22px);
+                font-weight: 600;
+                border-bottom: 1px solid rgba(255,255,255,0.6);
+            }
+            
+            .date-display.day-mode .date-month {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: min(3.5vw, 22px);
+                font-weight: 600;
+            }
+            
+            .date-display.day-mode .date-right-section {
+                flex: 1;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-left: 1px solid rgba(255,255,255,0.6);
+            }
+            
+            .date-display.day-mode .date-day {
+                font-size: min(10vw, 50px);
+                font-weight: 800;
+                text-align: center;
+            }
+            /* End of added landscape day-mode styles */
+
+            /* Added for landscape month-mode */
+            .date-display.month-mode {
+                display: flex;
+                flex-direction: row;
+            }
+            .date-display.month-mode .date-left-section {
+                flex: 1;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                position: relative;
+            }
+            .date-display.month-mode .date-year {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: min(3.5vw, 22px);
+                font-weight: 600;
+                border-bottom: 1px solid rgba(255,255,255,0.6);
+            }
+            .date-display.month-mode .date-month {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: min(3.5vw, 22px);
+                font-weight: 600;
+            }
+            .date-display.month-mode .date-right-section {
+                flex: 1;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-left: 1px solid rgba(255,255,255,0.6);
+            }
+            .date-display.month-mode .date-day {
+                font-size: min(10vw, 50px);
+                font-weight: 800;
+                text-align: center;
+            }
+
+            /* Added for landscape year-mode */
+            .date-display.year-mode .date-year-digit-container {
+                display: flex;
+                flex-direction: row;
+                width: 100%;
+                height: 100%;
+            }
+            .date-display.year-mode .date-year-digit-container .date-year-digit {
+                border-left: 1px solid rgba(255,255,255,0.6);
+            }
+            .date-display.year-mode .date-year-digit-container .date-year-digit:first-child {
+                border-left: none;
+            }
+            .date-display.year-mode .date-year-digit {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: min(10vw, 50px);
+                font-weight: 800;
+            }
+            /* End of added landscape month-mode and year-mode styles */
+            
+            .chart-container {
+                max-height: 300px;
+                min-width: 0;
+            }
+            
+            .chart-content canvas {
+                max-width: 100%;
+                height: auto !important;
+            }
+            
+            /* 横屏模式下第二个大卡片优化 */
+            .stat-card {
+                padding: 15px; /* 保持固定的15px内间距 */
+            }
+            
+            /* 横屏模式下柱状图容器自适应拉长填充空白区域 */
+            .bar-chart-container,
+            .month-bar-chart-container,
+            .year-bar-chart-container {
+                height: auto !important; /* 自适应高度，根据卡片空间自动拉长 */
+                min-height: 400px !important; /* 设置最小高度确保基本显示效果 */
+                max-height: none !important; /* 移除最大高度限制，允许自适应拉长 */
+                flex: 1; /* 使用flex布局自动填充可用空间 */
+                padding: 15px; /* 保持15px内间距 */
+                margin: 0; /* 移除外边距以最大化利用空间 */
+            }
+            
+            /* 横屏模式下日历图容器也相应调整 */
+            .calendar-chart-container {
+                height: auto !important; /* 自适应高度 */
+                min-height: 400px !important;
+                max-height: none !important;
+                flex: 1; /* 使用flex布局自动填充可用空间 */
+                padding: 15px; /* 保持15px内间距 */
+                margin: 0; /* 移除外边距以最大化利用空间 */
+            }
+            
+            /* 横屏模式下第二个大卡片内部间距优化 */
+            .stat-card {
+                gap: 10px; /* 保持适当的内部元素间距 */
+            }
+            
+            /* 横屏模式下图表容器和内容优化 */
+            .chart-container {
+                flex: 1;
+                min-height: 400px;
+                gap: 10px;
+            }
+            
+            .chart-content {
+                flex: 1;
+                height: auto !important;
+                min-height: 400px;
+            }
+            
+            .chart-content-inner {
+                height: 100%;
+                flex: 1;
+            }
+        }
+
+        /* 修改后的底部导航栏样式 */
+        .tab-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 85px;
+            background: rgba(255,255,255,0.98);
+            backdrop-filter: blur(40px);
+            display: flex;
+            padding: 4px;
+            border-top: 1px solid rgba(0,0,0,0.08);
+            z-index: 100;
+        }
+
+        .tab-track {
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            background: transparent;
+            border-radius: 12px;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+        }
+
+        .tab-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #999;
+            transition: color 0.3s ease;
+            cursor: pointer;
+        }
+
+        .tab-item.pressed {
+            transform: scale(0.85);
+            transition: transform 0.1s ease-out;
+        }
+
+        .tab-item i {
+            font-size: 46px;
+        }
+
+        .tab-item.active {
+            color: var(--primary-blue);
+        }
+
+        .tab-item span {
+            font-size: 12px;
+            margin-top: 4px;
+            font-weight: 500;
+        }
+
+        .tab-slider {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 25%;
+            height: 100%;
+            background: var(--slider-bg);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        /* 动画效果已删除 */
+        
+        /* 添加悬浮效果 */
+        .toggle-option:hover {
+            background-color: rgba(0,0,0,0.03);
+        }
+        
+        .chart-toggle-option:hover {
+            background-color: rgba(0,0,0,0.03);
+        }
+        
+        .type-button:hover {
+            background: linear-gradient(to right, rgba(0,122,255,0.1), white);
+        }
+        
+        /* 添加过渡效果 */
+        .toggle-slider, .chart-toggle-slider, .tab-slider {
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+        
+        .date-display {
+            transition: all 0.3s ease;
+        }
+
+    </style>
+    <!-- 添加Nunito字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800&display=swap" rel="stylesheet">
+    <!-- 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+    <div class="scroll-container">
+        <div class="stats-container">
+            <!-- 卡片1：日期与筛选 -->
+            <div id="1" class="stat-card">
+                <div class="date-tabs">
+                    <div class="toggle-track">
+                        <div class="toggle-option active" data-mode="day">
+                            <i class="fas fa-calendar-day"></i>
+                        </div>
+                        <div class="toggle-option" data-mode="month">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <div class="toggle-option" data-mode="year">
+                            <i class="fas fa-calendar"></i>
+                        </div>
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+                
+                <div class="date-navigator">
+                    <button class="date-nav-btn" id="prev-btn">
+                        <svg width="32" height="32" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                            <path fill="white" stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M24 5L6 24l18 19V31h18V17H24z"/>
+                        </svg>
+                    </button>
+                    <div class="date-display day-mode" id="date-display">
+                        <div class="date-left-section">
+                            <div class="date-year">2024</div>
+                            <div class="date-month">7月</div>
+                        </div>
+                        <div class="date-right-section">
+                            <div class="date-day">1</div>
+                        </div>
+                    </div>
+                    <button class="date-nav-btn" id="next-btn">
+                        <svg width="32" height="32" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                            <path fill="white" stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="m24 43l18-19L24 5v12H6v14h18z"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="income-expense-tabs">
+                    <div class="toggle-track">
+                        <div class="toggle-option active" data-type="income">
+                            <i class="fas fa-wallet"></i>
+                        </div>
+                        <div class="toggle-option" data-type="expense">
+                            <i class="fas fa-tags"></i>
+                        </div>
+                        <div class="toggle-slider" style="width: 50%;"></div>
+                    </div>
+                </div>
+
+                <div class="filter-row">
+                    <button class="type-button">
+                        <i class="fas fa-filter"></i>
+                        <span>筛选类型</span>
+                    </button>
+                    
+                    <div class="income-expense-separator">
+                        <div class="separator-header">
+                            <i class="fas fa-exchange-alt"></i>
+                            <span>收支分离</span>
+                        </div>
+                        <div class="separator-switch">
+                            <input type="checkbox" id="income-expense-switch" class="switch-input">
+                            <label for="income-expense-switch" class="switch-label">
+                                <span class="switch-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-tabs">
+                    <div class="chart-toggle-track">
+                        <div class="chart-toggle-option active" data-chart="bar">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                        <div class="chart-toggle-option" data-chart="calendar">
+                            <i class="fas fa-calendar-check"></i>
+                        </div>
+                        <div class="chart-toggle-option" data-chart="pie">
+                            <i class="fas fa-chart-pie"></i>
+                        </div>
+                        <div class="chart-toggle-slider"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 卡片2：图表 - 已修改为柱状图卡片 -->
+            <div id="2" class="stat-card">
+                <!-- 日柱状图容器 -->
+                <div class="bar-chart-container chart-content active" data-chart-content="bar" style="display: flex;">
+                    <canvas id="barChart"></canvas>
+                </div>
+                
+                <!-- 月柱状图容器 -->
+                <div class="month-bar-chart-container chart-content" data-chart-content="month-bar" style="display: none;">
+                    <canvas id="monthBarChart"></canvas>
+                </div>
+                
+                <!-- 年柱状图容器 -->
+                <div class="year-bar-chart-container chart-content" data-chart-content="year-bar" style="display: none;">
+                    <canvas id="yearBarChart"></canvas>
+                </div>
+                
+                <!-- 日历图容器 -->
+                <div class="calendar-chart-container chart-content" data-chart-content="calendar" style="display: none;">
+                    <!-- 月日历图 -->
+                    <div class="monthly-calendar-card chart-card" id="monthly-calendar" style="display: block;">
+                        <div class="weekdays">
+                            <div class="weekday">日</div>
+                            <div class="weekday">一</div>
+                            <div class="weekday">二</div>
+                            <div class="weekday">三</div>
+                            <div class="weekday">四</div>
+                            <div class="weekday">五</div>
+                            <div class="weekday">六</div>
+                        </div>
+                        <div class="days-grid" id="days-grid">
+                            <!-- 动态生成日期 -->
+                        </div>
+                    </div>
+
+                    <!-- 年日历图 -->
+                    <div class="annual-calendar-card chart-card" id="annual-calendar" style="display: none;">
+                        <div class="months-grid">
+                            <div class="month-card month-1">一月</div>
+                            <div class="month-card month-2">二月</div>
+                            <div class="month-card month-3">三月</div>
+                            <div class="month-card month-4">四月</div>
+                            <div class="month-card month-5">五月</div>
+                            <div class="month-card month-6">六月</div>
+                            <div class="month-card month-7">七月</div>
+                            <div class="month-card month-8">八月</div>
+                            <div class="month-card month-9">九月</div>
+                            <div class="month-card month-10">十月</div>
+                            <div class="month-card month-11">十一月</div>
+                            <div class="month-card month-12">十二月</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 修改后的底部导航栏 -->
+    <div class="tab-bar">
+        <div class="tab-track">
+            <div class="tab-item active" data-tab="home">
+                <i class="fas fa-home"></i>
+            </div>
+            <div class="tab-item" data-tab="add">
+                <i class="fas fa-plus-circle"></i>
+            </div>
+            <div class="tab-item" data-tab="stats">
+                <i class="fas fa-chart-pie"></i>
+            </div>
+            <div class="tab-item" data-tab="profile">
+                <i class="fas fa-user"></i>
+            </div>
+            <div class="tab-slider"></div>
+        </div>
+    </div>
+    
+    <!-- Chart.js 库 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- 交互逻辑 -->
+    <script>
+        // 日期相关功能
+        const dateDisplay = document.getElementById('date-display');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        
+        let currentMode = 'day';
+        let currentDate = new Date();
+        let currentType = 'expense'; // 'income', 'expense'
+        let currentBarChartPeriod = 'week'; // 'week', 'month'
+        let currentChartType = 'bar'; // 'bar', 'calendar', 'pie'
+        
+        function updateDateDisplay() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth() + 1;
+            const day = currentDate.getDate();
+            
+            // 移除所有模式类
+            dateDisplay.classList.remove('day-mode', 'month-mode', 'year-mode');
+            
+            switch(currentMode) {
+                case 'day':
+                    dateDisplay.classList.add('day-mode');
+                    // Apply detailed layout for both portrait and landscape
+                    dateDisplay.innerHTML = `
+                        <div class="date-left-section">
+                            <div class="date-year">${year}</div>
+                            <div class="date-month">${month}月</div>
+                        </div>
+                        <div class="date-right-section">
+                            <div class="date-day">${day}</div>
+                        </div>
+                    `;
+                    break;
+                case 'month':
+                    dateDisplay.classList.add('month-mode');
+                    dateDisplay.innerHTML = `
+                        <div class="date-left-section">
+                            <div class="date-year">${year}</div>
+                            <div class="date-month">年</div> 
+                        </div>
+                        <div class="date-right-section">
+                            <div class="date-day">${month}</div> 
+                        </div>
+                    `;
+                    break;
+                case 'year':
+                    dateDisplay.classList.add('year-mode');
+                    const yearDigits = String(year).split('');
+                    dateDisplay.innerHTML = `
+                        <div class="date-year-digit-container">
+                            <div class="date-year-digit">${yearDigits[0]}</div>
+                            <div class="date-year-digit">${yearDigits[1]}</div>
+                            <div class="date-year-digit">${yearDigits[2]}</div>
+                            <div class="date-year-digit">${yearDigits[3]}</div>
+                        </div>
+                    `;
+                    break;
+            }
+        }
+        
+        function navigateDate(direction) {
+            switch(currentMode) {
+                case 'day':
+                    currentDate.setDate(currentDate.getDate() + direction);
+                    break;
+                case 'month':
+                    currentDate.setMonth(currentDate.getMonth() + direction);
+                    break;
+                case 'year':
+                    currentDate.setFullYear(currentDate.getFullYear() + direction);
+                    break;
+            }
+            updateDateDisplay();
+            updateBarChartData();
+            // 如果当前显示的是日历图表，也要更新日历显示
+            const activeChart = document.querySelector('.chart-content.active');
+            if (activeChart && activeChart.dataset.chartContent === 'calendar') {
+                updateCalendarDisplay();
+            }
+        }
+        
+        updateDateDisplay();
+        prevBtn.addEventListener('click', () => navigateDate(-1));
+        nextBtn.addEventListener('click', () => navigateDate(1));
+        
+        // 监听屏幕方向变化
+        window.addEventListener('resize', () => {
+            updateDateDisplay();
+            updateBarChartData();
+            // 确保柱状图容器高度在竖屏模式下保持350px
+            setTimeout(() => {
+                ensureBarChartHeight();
+                ensureMonthBarChartHeight();
+                ensureYearBarChartHeight();
+                if (window.myBarChart) {
+                    window.myBarChart.resize();
+                }
+                if (window.myMonthBarChart) {
+                    window.myMonthBarChart.resize();
+                }
+                if (window.myYearBarChart) {
+                    window.myYearBarChart.resize();
+                }
+            }, 100);
+        });
+        
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                updateDateDisplay();
+                ensureBarChartHeight();
+                ensureMonthBarChartHeight();
+                ensureYearBarChartHeight();
+                if (window.myBarChart) {
+                    window.myBarChart.resize();
+                }
+                if (window.myMonthBarChart) {
+                    window.myMonthBarChart.resize();
+                }
+                if (window.myYearBarChart) {
+                    window.myYearBarChart.resize();
+                }
+            }, 200);
+        });
+        
+        // 日历图表相关函数
+        function renderCalendarChart() {
+            updateCalendarDisplay();
+        }
+
+        function updateCalendarDisplay() {
+            const monthlyCalendar = document.getElementById('monthly-calendar');
+            const annualCalendar = document.getElementById('annual-calendar');
+            const calendarContainer = document.querySelector('.calendar-chart-container');
+            
+            // 检查是否同时满足两个条件：当前图表类型是日历 AND 当前日期模式
+            const activeChart = document.querySelector('.chart-content.active');
+            const isCalendarChart = activeChart && activeChart.dataset.chartContent === 'calendar';
+            const isMonthMode = currentMode === 'month';
+            const isYearMode = currentMode === 'year';
+            
+            if (isCalendarChart && isMonthMode) {
+                // 同时满足两个条件时，显示月度日历
+                // 确保日历容器有背景色和阴影
+                calendarContainer.style.background = 'white';
+                calendarContainer.style.boxShadow = '0 8px 24px rgba(0,0,0,0.08)';
+                
+                // 隐藏年度日历
+                if (annualCalendar) {
+                    annualCalendar.style.display = 'none';
+                    annualCalendar.classList.add('fade-out');
+                }
+                
+                // 显示月度日历
+                if (monthlyCalendar) {
+                    monthlyCalendar.style.display = 'block';
+                    monthlyCalendar.classList.remove('fade-out');
+                    updateMonthlyCalendar();
+                } else {
+                    // 恢复原始HTML结构
+                    calendarContainer.innerHTML = `
+                        <div class="monthly-calendar-card chart-card" id="monthly-calendar" style="display: block;">
+                            <div class="weekdays">
+                                <div class="weekday">日</div>
+                                <div class="weekday">一</div>
+                                <div class="weekday">二</div>
+                                <div class="weekday">三</div>
+                                <div class="weekday">四</div>
+                                <div class="weekday">五</div>
+                                <div class="weekday">六</div>
+                            </div>
+                            <div class="days-grid" id="days-grid">
+                                <!-- 动态生成日期 -->
+                            </div>
+                        </div>
+                        <div class="annual-calendar-card chart-card" id="annual-calendar" style="display: none;">
+                            <div class="months-grid">
+                                <div class="month-card month-1">一月</div>
+                                <div class="month-card month-2">二月</div>
+                                <div class="month-card month-3">三月</div>
+                                <div class="month-card month-4">四月</div>
+                                <div class="month-card month-5">五月</div>
+                                <div class="month-card month-6">六月</div>
+                                <div class="month-card month-7">七月</div>
+                                <div class="month-card month-8">八月</div>
+                                <div class="month-card month-9">九月</div>
+                                <div class="month-card month-10">十月</div>
+                                <div class="month-card month-11">十一月</div>
+                                <div class="month-card month-12">十二月</div>
+                            </div>
+                        </div>
+                    `;
+                    updateMonthlyCalendar();
+                }
+            } else if (isCalendarChart && isYearMode) {
+                // 同时满足两个条件时，显示年度日历
+                // 确保日历容器有背景色和阴影
+                calendarContainer.style.background = 'white';
+                calendarContainer.style.boxShadow = '0 8px 24px rgba(0,0,0,0.08)';
+                
+                // 隐藏月度日历
+                if (monthlyCalendar) {
+                    monthlyCalendar.style.display = 'none';
+                    monthlyCalendar.classList.add('fade-out');
+                }
+                
+                // 显示年度日历
+                if (annualCalendar) {
+                    annualCalendar.style.display = 'block';
+                    annualCalendar.classList.remove('fade-out');
+                } else {
+                    // 恢复原始HTML结构
+                    calendarContainer.innerHTML = `
+                        <div class="monthly-calendar-card chart-card" id="monthly-calendar" style="display: none;">
+                            <div class="weekdays">
+                                <div class="weekday">日</div>
+                                <div class="weekday">一</div>
+                                <div class="weekday">二</div>
+                                <div class="weekday">三</div>
+                                <div class="weekday">四</div>
+                                <div class="weekday">五</div>
+                                <div class="weekday">六</div>
+                            </div>
+                            <div class="days-grid" id="days-grid">
+                                <!-- 动态生成日期 -->
+                            </div>
+                        </div>
+                        <div class="annual-calendar-card chart-card" id="annual-calendar" style="display: block;">
+                            <div class="months-grid">
+                                <div class="month-card month-1">一月</div>
+                                <div class="month-card month-2">二月</div>
+                                <div class="month-card month-3">三月</div>
+                                <div class="month-card month-4">四月</div>
+                                <div class="month-card month-5">五月</div>
+                                <div class="month-card month-6">六月</div>
+                                <div class="month-card month-7">七月</div>
+                                <div class="month-card month-8">八月</div>
+                                <div class="month-card month-9">九月</div>
+                                <div class="month-card month-10">十月</div>
+                                <div class="month-card month-11">十一月</div>
+                                <div class="month-card month-12">十二月</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            } else if (isCalendarChart) {
+                // 在日历模式但不是月模式或年模式时，隐藏所有日历并移除容器背景
+                if (monthlyCalendar) {
+                    monthlyCalendar.style.display = 'none';
+                    monthlyCalendar.classList.add('fade-out');
+                }
+                if (annualCalendar) {
+                    annualCalendar.style.display = 'none';
+                    annualCalendar.classList.add('fade-out');
+                }
+                // 移除日历容器的背景色和阴影
+                calendarContainer.style.background = 'transparent';
+                calendarContainer.style.boxShadow = 'none';
+                // 添加提示信息
+                if (currentMode === 'day') {
+                    calendarContainer.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;">日模式下暂无日历视图</div>';
+                }
+            } else {
+                // 不是日历图表时，隐藏所有日历
+                if (monthlyCalendar) {
+                    monthlyCalendar.style.display = 'none';
+                    monthlyCalendar.classList.add('fade-out');
+                }
+                if (annualCalendar) {
+                    annualCalendar.style.display = 'none';
+                    annualCalendar.classList.add('fade-out');
+                }
+            }
+        }
+
+        function updateMonthlyCalendar() {
+            const daysGrid = document.getElementById('days-grid');
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            
+            // 清空现有内容
+            daysGrid.innerHTML = '';
+            
+            // 获取当月第一天和最后一天
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startDayOfWeek = firstDay.getDay();
+            
+            // 添加上个月的日期（填充）
+            const prevMonth = new Date(year, month - 1, 0);
+            const daysInPrevMonth = prevMonth.getDate();
+            
+            for (let i = startDayOfWeek - 1; i >= 0; i--) {
+                const dayElement = createDayElement(
+                    daysInPrevMonth - i,
+                    'other-month',
+                    (startDayOfWeek - 1 - i) % 7
+                );
+                daysGrid.appendChild(dayElement);
+            }
+            
+            // 添加当月的日期
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayOfWeek = (startDayOfWeek + day - 1) % 7;
+                const dayElement = createDayElement(day, 'current-month', dayOfWeek);
+                
+                // 如果是当前选中的日期，添加选中样式
+                if (currentMode === 'day' && day === currentDate.getDate()) {
+                    dayElement.classList.add('selected');
+                }
+                
+                daysGrid.appendChild(dayElement);
+            }
+            
+            // 添加下个月的日期（填充）
+            const totalCells = daysGrid.children.length;
+            const remainingCells = 42 - totalCells; // 6行 × 7列 = 42个格子
+            
+            for (let day = 1; day <= remainingCells; day++) {
+                const dayOfWeek = (totalCells + day - 1) % 7;
+                const dayElement = createDayElement(day, 'other-month', dayOfWeek);
+                daysGrid.appendChild(dayElement);
+            }
+        }
+
+        function createDayElement(day, monthClass, dayOfWeek) {
+            const dayElement = document.createElement('div');
+            dayElement.className = 'day ' + monthClass;
+            dayElement.textContent = day;
+            
+            // 添加星期几的样式
+            const weekdayClasses = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+            dayElement.classList.add(weekdayClasses[dayOfWeek]);
+            
+            // 添加点击事件
+            if (monthClass === 'current-month') {
+                dayElement.addEventListener('click', () => {
+                    // 移除其他选中状态
+                    document.querySelectorAll('.day.selected').forEach(el => {
+                        el.classList.remove('selected');
+                    });
+                    
+                    // 添加选中状态
+                    dayElement.classList.add('selected');
+                    
+                    // 更新当前日期
+                    currentDate.setDate(day);
+                    updateDateDisplay();
+                });
+            }
+            
+            return dayElement;
+        }
+
+
+
+        // 滑块组件初始化
+        function initSlider(containerSelector, optionsSelector, sliderSelector, callback) {
+            const container = document.querySelector(containerSelector);
+            if (!container) return;
+            
+            const options = container.querySelectorAll(optionsSelector);
+            const slider = container.querySelector(sliderSelector);
+            
+            // 添加过渡效果
+            slider.style.transition = 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)';
+            
+            options.forEach((option, index) => {
+                option.addEventListener('click', () => {
+                    options.forEach(opt => opt.classList.remove('active'));
+                    option.classList.add('active');
+                    
+                    const optionCount = options.length;
+                    const sliderWidth = 100 / optionCount;
+                    const sliderPosition = (100 / optionCount) * index;
+                    
+                    slider.style.width = `${sliderWidth}%`;
+                    slider.style.left = `${sliderPosition}%`;
+                    
+                    if (callback) callback(option, index);
+                });
+            });
+        }
+        
+        // 初始化所有滑块
+        initSlider('.date-tabs', '.toggle-option', '.toggle-slider', (option) => {
+            currentMode = option.dataset.mode;
+            updateDateDisplay();
+            updateBarChartData();
+            // 更新图表显示
+            updateChartDisplay();
+        });
+        
+        initSlider('.income-expense-tabs', '.toggle-option', '.toggle-slider', (option) => {
+            currentType = option.dataset.type;
+            updateBarChartData();
+        });
+
+        // 柱状图时间切换
+        initSlider('.bar-chart-time-switcher', '.bar-chart-btn', '.bar-chart-slider', (option) => {
+            currentBarChartPeriod = option.dataset.period;
+            updateBarChartData();
+        });
+
+        // 图表切换
+        initSlider('.chart-tabs', '.chart-toggle-option', '.chart-toggle-slider', (option) => {
+            currentChartType = option.dataset.chart;
+            updateChartDisplay();
+        });
+        
+        // 更新图表显示逻辑
+        function updateChartDisplay() {
+            // 隐藏所有图表内容
+            document.querySelectorAll('.chart-content').forEach(content => {
+                content.classList.remove('active');
+                content.style.display = 'none';
+            });
+            
+            // 检查是否应该显示日柱状图（日模式 + 柱状图按钮）
+            if (currentMode === 'day' && currentChartType === 'bar') {
+                const barChartContainer = document.querySelector('.chart-content[data-chart-content="bar"]');
+                if (barChartContainer) {
+                    barChartContainer.classList.add('active');
+                    barChartContainer.style.display = 'flex';
+                    renderBarChart();
+                }
+            }
+            // 检查是否应该显示月柱状图（月模式 + 柱状图按钮）
+            else if (currentMode === 'month' && currentChartType === 'bar') {
+                const monthBarChartContainer = document.querySelector('.chart-content[data-chart-content="month-bar"]');
+                if (monthBarChartContainer) {
+                    monthBarChartContainer.classList.add('active');
+                    monthBarChartContainer.style.display = 'flex';
+                    renderMonthBarChart();
+                }
+            }
+            // 检查是否应该显示年柱状图（年模式 + 柱状图按钮）
+            else if (currentMode === 'year' && currentChartType === 'bar') {
+                const yearBarChartContainer = document.querySelector('.chart-content[data-chart-content="year-bar"]');
+                if (yearBarChartContainer) {
+                    yearBarChartContainer.classList.add('active');
+                    yearBarChartContainer.style.display = 'flex';
+                    renderYearBarChart();
+                }
+            }
+            // 检查是否应该显示日历图（月模式或年模式 + 日历按钮）
+            else if ((currentMode === 'month' || currentMode === 'year') && currentChartType === 'calendar') {
+                const calendarContainer = document.querySelector('.chart-content[data-chart-content="calendar"]');
+                if (calendarContainer) {
+                    calendarContainer.classList.add('active');
+                    calendarContainer.style.display = 'flex';
+                    renderCalendarChart();
+                }
+            }
+            // 其他情况显示提示信息
+            else {
+                const targetContainer = document.querySelector(`.chart-content[data-chart-content="${currentChartType}"]`);
+                if (targetContainer) {
+                    targetContainer.classList.add('active');
+                    targetContainer.style.display = 'flex';
+                    
+                    if (currentChartType === 'bar' && currentMode !== 'day') {
+                        targetContainer.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:18px;">柱状图仅在日模式下可用</div>';
+                    } else if (currentChartType === 'calendar' && currentMode === 'day') {
+                        targetContainer.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:18px;">日历图在日模式下暂不可用</div>';
+                    } else if (currentChartType === 'pie') {
+                        targetContainer.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;font-size:18px;">饼图功能开发中...</div>';
+                    }
+                }
+            }
+        }
+
+        // 页面加载完成后初始化日历
+        document.addEventListener('DOMContentLoaded', function() {
+             // 初始化日历显示，确保在图表切换逻辑之后，这样如果默认是日历图表，它会被正确渲染
+            const initialActiveChart = document.querySelector('.chart-tabs .chart-toggle-option.active');
+            if (initialActiveChart && initialActiveChart.dataset.chart === 'calendar'){
+                renderCalendarChart();
+            } else {
+                // 如果初始不是日历，但月度日历是默认显示的，也需要初始化一下
+                const monthlyCalendar = document.getElementById('monthly-calendar');
+                if (monthlyCalendar && monthlyCalendar.style.display !== 'none') {
+                    updateMonthlyCalendar(); 
+                }
+            }
+        });
+
+        // 初始化底部导航栏滑块
+        initSlider('.tab-track', '.tab-item', '.tab-slider', (item) => {
+            console.log(`切换到${item.dataset.tab}页面`);
+        });
+        
+        // 设置底部导航栏滑块初始位置到首页
+        const tabSlider = document.querySelector('.tab-slider');
+        if (tabSlider) {
+            tabSlider.style.width = '25%';
+            tabSlider.style.left = '0%';
+        }
+
+        // 为底部导航栏按钮添加按压效果
+        document.querySelectorAll('.tab-item').forEach(item => {
+            item.addEventListener('mousedown', () => {
+                item.classList.remove('pressed'); // 先移除类
+                // 强制浏览器重绘/回流，以确保CSS动画能够重新触发
+                void item.offsetWidth; // 读取offsetWidth会强制浏览器进行一次回流
+                item.classList.add('pressed'); // 重新添加类
+            });
+            item.addEventListener('mouseup', () => {
+                // 延迟移除pressed类，确保动画完成
+                setTimeout(() => {
+                    item.classList.remove('pressed');
+                }, 100); // 100ms 略大于 transition 的 0.1s
+            });
+            item.addEventListener('mouseleave', () => {
+                item.classList.remove('pressed');
+            });
+        });
+
+        // 模拟数据
+        const barChartData = {
+            day: {
+                labels: ['餐饮', '购物', '交通', '娱乐', '住房', '其他'],
+                values: [1200, 1900, 800, 1500, 2000, 1000]
+            },
+            month: {
+                labels: ['1日', '5日', '10日', '15日', '20日', '25日', '30日'],
+                values: [4200, 5500, 4800, 7200, 6800, 5900, 6400]
+            },
+            year: {
+                labels: ['1月', '3月', '5月', '7月', '9月', '11月'],
+                values: [18500, 21000, 24500, 32000, 29500, 38000]
+            }
+        };
+
+        // 初始化柱状图
+        function initBarChart() {
+            // 获取Canvas元素
+            const ctx = document.getElementById('barChart').getContext('2d');
+            
+            // 初始化图表
+            window.myBarChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: barChartData.day.labels,
+                    datasets: [{
+                        label: '支出金额',
+                        data: barChartData.day.values,
+                        backgroundColor: [
+                            'rgba(255, 59, 48, 0.85)',
+                            'rgba(255, 149, 0, 0.85)',
+                            'rgba(255, 204, 0, 0.85)',
+                            'rgba(52, 199, 89, 0.85)',
+                            'rgba(0, 122, 255, 0.85)',
+                            'rgba(88, 86, 214, 0.85)'
+                        ],
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        borderWidth: 1,
+                        borderColor: 'rgba(0,0,0,0.1)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            titleColor: '#1e293b',
+                            bodyColor: '#64748b',
+                            borderColor: '#e2e8f0',
+                            borderWidth: 1,
+                            padding: 10,
+                            boxPadding: 6,
+                            displayColors: false,
+                            callbacks: {
+                                label: (ctx) => `¥${ctx.parsed.y}`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { 
+                                color: 'rgba(0,0,0,0.05)',
+                                drawBorder: false
+                            },
+                            ticks: { 
+                                color: '#94a3b8',
+                                callback: function(value) {
+                                    return '¥' + value;
+                                }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+            
+
+        }
+
+        // 渲染柱状图函数
+        function renderBarChart() {
+            if (!window.myBarChart) {
+                initBarChart();
+            }
+            ensureBarChartHeight();
+        }
+        
+        // 月柱状图数据
+        const monthChartData = {
+            labels: ['1日', '5日', '10日', '15日', '20日', '25日', '30日'],
+            values: [4200, 5500, 4800, 7200, 6800, 5900, 6400]
+        };
+
+        // 初始化月柱状图
+        function initMonthBarChart() {
+            const ctx = document.getElementById('monthBarChart').getContext('2d');
+            
+            window.myMonthBarChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: monthChartData.labels,
+                    datasets: [{
+                        label: '支出金额',
+                        data: monthChartData.values,
+                        backgroundColor: [
+                            'rgba(255, 59, 48, 0.85)',
+                            'rgba(255, 149, 0, 0.85)',
+                            'rgba(255, 204, 0, 0.85)',
+                            'rgba(52, 199, 89, 0.85)',
+                            'rgba(0, 122, 255, 0.85)',
+                            'rgba(88, 86, 214, 0.85)',
+                            'rgba(255, 45, 85, 0.85)'
+                        ],
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        borderWidth: 1,
+                        borderColor: 'rgba(0,0,0,0.1)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            titleColor: '#1e293b',
+                            bodyColor: '#64748b',
+                            borderColor: '#e2e8f0',
+                            borderWidth: 1,
+                            padding: 10,
+                            boxPadding: 6,
+                            displayColors: false,
+                            callbacks: {
+                                label: (ctx) => `¥${ctx.parsed.y}`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { 
+                                color: 'rgba(0,0,0,0.05)',
+                                drawBorder: false
+                            },
+                            ticks: { 
+                                color: '#94a3b8',
+                                callback: function(value) {
+                                    return '¥' + value;
+                                }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 渲染月柱状图函数
+        function renderMonthBarChart() {
+            if (!window.myMonthBarChart) {
+                initMonthBarChart();
+            }
+            ensureMonthBarChartHeight();
+        }
+        
+        // 确保月柱状图容器高度在竖屏模式下始终为350px
+        function ensureMonthBarChartHeight() {
+            const monthBarChartContainer = document.querySelector('.month-bar-chart-container');
+            if (monthBarChartContainer) {
+                // 检查是否为竖屏模式
+                const isPortrait = window.innerHeight > window.innerWidth;
+                if (isPortrait) {
+                    monthBarChartContainer.style.height = '350px';
+                    monthBarChartContainer.style.minHeight = '350px';
+                    monthBarChartContainer.style.maxHeight = '350px';
+                }
+            }
+        }
+        
+        // 年柱状图数据
+        const yearChartData = {
+            labels: ['1月', '3月', '5月', '7月', '9月', '11月'],
+            values: [18500, 21000, 24500, 32000, 29500, 38000]
+        };
+
+        // 初始化年柱状图
+        function initYearBarChart() {
+            const ctx = document.getElementById('yearBarChart').getContext('2d');
+            
+            window.myYearBarChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: yearChartData.labels,
+                    datasets: [{
+                        label: '支出金额',
+                        data: yearChartData.values,
+                        backgroundColor: [
+                            'rgba(255, 59, 48, 0.85)',
+                            'rgba(255, 149, 0, 0.85)',
+                            'rgba(255, 204, 0, 0.85)',
+                            'rgba(52, 199, 89, 0.85)',
+                            'rgba(0, 122, 255, 0.85)',
+                            'rgba(88, 86, 214, 0.85)'
+                        ],
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        borderWidth: 1,
+                        borderColor: 'rgba(0,0,0,0.1)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            titleColor: '#1e293b',
+                            bodyColor: '#64748b',
+                            borderColor: '#e2e8f0',
+                            borderWidth: 1,
+                            padding: 10,
+                            boxPadding: 6,
+                            displayColors: false,
+                            callbacks: {
+                                label: (ctx) => `¥${ctx.parsed.y}`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { 
+                                color: 'rgba(0,0,0,0.05)',
+                                drawBorder: false
+                            },
+                            ticks: { 
+                                color: '#94a3b8',
+                                callback: function(value) {
+                                    return '¥' + value;
+                                }
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 渲染年柱状图函数
+        function renderYearBarChart() {
+            if (!window.myYearBarChart) {
+                initYearBarChart();
+            }
+            ensureYearBarChartHeight();
+        }
+        
+        // 确保年柱状图容器高度在竖屏模式下始终为350px
+        function ensureYearBarChartHeight() {
+            const yearBarChartContainer = document.querySelector('.year-bar-chart-container');
+            if (yearBarChartContainer) {
+                // 检查是否为竖屏模式
+                const isPortrait = window.innerHeight > window.innerWidth;
+                if (isPortrait) {
+                    yearBarChartContainer.style.height = '350px';
+                    yearBarChartContainer.style.minHeight = '350px';
+                    yearBarChartContainer.style.maxHeight = '350px';
+                }
+            }
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initBarChart();
+            initMonthBarChart();
+            initYearBarChart();
+            ensureBarChartHeight();
+            ensureMonthBarChartHeight();
+            ensureYearBarChartHeight();
+            
+            // 窗口大小变化监听器
+            window.addEventListener('resize', () => {
+                ensureBarChartHeight();
+                ensureMonthBarChartHeight();
+                ensureYearBarChartHeight();
+                resizeBarChart();
+                resizeMonthBarChart();
+                resizeYearBarChart();
+            });
+            
+            // 屏幕方向变化监听器
+            window.addEventListener('orientationchange', () => {
+                setTimeout(() => {
+                    ensureBarChartHeight();
+                    ensureMonthBarChartHeight();
+                    ensureYearBarChartHeight();
+                    if (window.myBarChart) {
+                        window.myBarChart.resize();
+                    }
+                    if (window.myMonthBarChart) {
+                        window.myMonthBarChart.resize();
+                    }
+                    if (window.myYearBarChart) {
+                        window.myYearBarChart.resize();
+                    }
+                }, 100);
+            });
+            
+            // 初始化图表显示
+            updateChartDisplay();
+
+            const tabItems = document.querySelectorAll('.tab-item');
+            tabItems.forEach(item => {
+                item.addEventListener('mousedown', function() {
+                    // 移除 pressed 类，强制重绘，然后重新添加
+                    this.classList.remove('pressed');
+                    void this.offsetWidth; // 强制浏览器重绘
+                    this.classList.add('pressed');
+                });
+
+                item.addEventListener('mouseup', function() {
+                    this.classList.remove('pressed');
+                });
+
+                item.addEventListener('mouseleave', function() {
+                    // 如果鼠标移开时按钮仍处于按下状态，也移除 pressed 类
+                    if (this.classList.contains('pressed')) {
+                        this.classList.remove('pressed');
+                    }
+                });
+            });
+        });
+
+        function updateBarChartData() {
+            if (window.myBarChart) {
+                window.myBarChart.data.labels = barChartData[currentMode].labels;
+                window.myBarChart.data.datasets[0].data = barChartData[currentMode].values;
+                window.myBarChart.update();
+            }
+        }
+
+        function resizeBarChart() {
+            if (window.myBarChart) {
+                window.myBarChart.resize();
+            }
+        }
+        
+        function resizeMonthBarChart() {
+            if (window.myMonthBarChart) {
+                window.myMonthBarChart.resize();
+            }
+        }
+        
+        function resizeYearBarChart() {
+            if (window.myYearBarChart) {
+                window.myYearBarChart.resize();
+            }
+        }
+        
+        // 确保柱状图容器高度在竖屏模式下始终为350px
+        function ensureBarChartHeight() {
+            const barChartContainer = document.querySelector('.bar-chart-container');
+            if (barChartContainer) {
+                // 检查是否为竖屏模式
+                const isPortrait = window.innerHeight > window.innerWidth;
+                if (isPortrait) {
+                    barChartContainer.style.height = '350px';
+                    barChartContainer.style.minHeight = '350px';
+                    barChartContainer.style.maxHeight = '350px';
+                }
+            }
+        }
+
+        // 日历图表相关函数
+        function renderCalendarChart() {
+            updateCalendarDisplay();
+        }
+
+        function updateCalendarDisplay() {
+            const monthlyCalendar = document.getElementById('monthly-calendar');
+            const annualCalendar = document.getElementById('annual-calendar');
+            const calendarContainer = document.querySelector('.calendar-chart-container');
+            
+            // 检查是否同时满足两个条件：当前图表类型是日历 AND 当前日期模式
+            const activeChart = document.querySelector('.chart-content.active');
+            const isCalendarChart = activeChart && activeChart.dataset.chartContent === 'calendar';
+            const isMonthMode = currentMode === 'month';
+            const isYearMode = currentMode === 'year';
+            
+            if (isCalendarChart && isMonthMode) {
+                // 同时满足两个条件时，显示月度日历
+                // 确保日历容器有背景色和阴影
+                calendarContainer.style.background = 'white';
+                calendarContainer.style.boxShadow = '0 8px 24px rgba(0,0,0,0.08)';
+                
+                // 隐藏年度日历
+                if (annualCalendar) {
+                    annualCalendar.style.display = 'none';
+                    annualCalendar.classList.add('fade-out');
+                }
+                
+                // 显示月度日历
+                if (monthlyCalendar) {
+                    monthlyCalendar.style.display = 'block';
+                    monthlyCalendar.classList.remove('fade-out');
+                    updateMonthlyCalendar();
+                } else {
+                    // 恢复原始HTML结构
+                    calendarContainer.innerHTML = `
+                        <div class="monthly-calendar-card chart-card" id="monthly-calendar" style="display: block;">
+                            <div class="weekdays">
+                                <div class="weekday">日</div>
+                                <div class="weekday">一</div>
+                                <div class="weekday">二</div>
+                                <div class="weekday">三</div>
+                                <div class="weekday">四</div>
+                                <div class="weekday">五</div>
+                                <div class="weekday">六</div>
+                            </div>
+                            <div class="days-grid" id="days-grid">
+                                <!-- 动态生成日期 -->
+                            </div>
+                        </div>
+                        <div class="annual-calendar-card chart-card" id="annual-calendar" style="display: none;">
+                            <div class="months-grid">
+                                <div class="month-card month-1">一月</div>
+                                <div class="month-card month-2">二月</div>
+                                <div class="month-card month-3">三月</div>
+                                <div class="month-card month-4">四月</div>
+                                <div class="month-card month-5">五月</div>
+                                <div class="month-card month-6">六月</div>
+                                <div class="month-card month-7">七月</div>
+                                <div class="month-card month-8">八月</div>
+                                <div class="month-card month-9">九月</div>
+                                <div class="month-card month-10">十月</div>
+                                <div class="month-card month-11">十一月</div>
+                                <div class="month-card month-12">十二月</div>
+                            </div>
+                        </div>
+                    `;
+                    updateMonthlyCalendar();
+                }
+            } else if (isCalendarChart && isYearMode) {
+                // 同时满足两个条件时，显示年度日历
+                // 确保日历容器有背景色和阴影
+                calendarContainer.style.background = 'white';
+                calendarContainer.style.boxShadow = '0 8px 24px rgba(0,0,0,0.08)';
+                
+                // 隐藏月度日历
+                if (monthlyCalendar) {
+                    monthlyCalendar.style.display = 'none';
+                    monthlyCalendar.classList.add('fade-out');
+                }
+                
+                // 显示年度日历
+                if (annualCalendar) {
+                    annualCalendar.style.display = 'block';
+                    annualCalendar.classList.remove('fade-out');
+                } else {
+                    // 恢复原始HTML结构
+                    calendarContainer.innerHTML = `
+                        <div class="monthly-calendar-card chart-card" id="monthly-calendar" style="display: none;">
+                            <div class="weekdays">
+                                <div class="weekday">日</div>
+                                <div class="weekday">一</div>
+                                <div class="weekday">二</div>
+                                <div class="weekday">三</div>
+                                <div class="weekday">四</div>
+                                <div class="weekday">五</div>
+                                <div class="weekday">六</div>
+                            </div>
+                            <div class="days-grid" id="days-grid">
+                                <!-- 动态生成日期 -->
+                            </div>
+                        </div>
+                        <div class="annual-calendar-card chart-card" id="annual-calendar" style="display: block;">
+                            <div class="months-grid">
+                                <div class="month-card month-1">一月</div>
+                                <div class="month-card month-2">二月</div>
+                                <div class="month-card month-3">三月</div>
+                                <div class="month-card month-4">四月</div>
+                                <div class="month-card month-5">五月</div>
+                                <div class="month-card month-6">六月</div>
+                                <div class="month-card month-7">七月</div>
+                                <div class="month-card month-8">八月</div>
+                                <div class="month-card month-9">九月</div>
+                                <div class="month-card month-10">十月</div>
+                                <div class="month-card month-11">十一月</div>
+                                <div class="month-card month-12">十二月</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            } else if (isCalendarChart) {
+                // 在日历模式但不是月模式或年模式时，隐藏所有日历并移除容器背景
+                if (monthlyCalendar) {
+                    monthlyCalendar.style.display = 'none';
+                    monthlyCalendar.classList.add('fade-out');
+                }
+                if (annualCalendar) {
+                    annualCalendar.style.display = 'none';
+                    annualCalendar.classList.add('fade-out');
+                }
+                // 移除日历容器的背景色和阴影
+                calendarContainer.style.background = 'transparent';
+                calendarContainer.style.boxShadow = 'none';
+                // 添加提示信息
+                if (currentMode === 'day') {
+                    calendarContainer.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#666;">日模式下暂无日历视图</div>';
+                }
+            } else {
+                // 不是日历图表时，隐藏所有日历
+                if (monthlyCalendar) {
+                    monthlyCalendar.style.display = 'none';
+                    monthlyCalendar.classList.add('fade-out');
+                }
+                if (annualCalendar) {
+                    annualCalendar.style.display = 'none';
+                    annualCalendar.classList.add('fade-out');
+                }
+            }
+        }
+
+        function updateMonthlyCalendar() {
+            const daysGrid = document.getElementById('days-grid');
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            
+            // 清空现有内容
+            daysGrid.innerHTML = '';
+            
+            // 获取当月第一天和最后一天
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startDayOfWeek = firstDay.getDay();
+            
+            // 添加上个月的日期（填充）
+            const prevMonth = new Date(year, month - 1, 0);
+            const daysInPrevMonth = prevMonth.getDate();
+            
+            for (let i = startDayOfWeek - 1; i >= 0; i--) {
+                const dayElement = createDayElement(
+                    daysInPrevMonth - i,
+                    'other-month',
+                    (startDayOfWeek - 1 - i) % 7
+                );
+                daysGrid.appendChild(dayElement);
+            }
+            
+            // 添加当月的日期
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayOfWeek = (startDayOfWeek + day - 1) % 7;
+                const dayElement = createDayElement(day, 'current-month', dayOfWeek);
+                
+                // 如果是当前选中的日期，添加选中样式
+                if (currentMode === 'day' && day === currentDate.getDate()) {
+                    dayElement.classList.add('selected');
+                }
+                
+                daysGrid.appendChild(dayElement);
+            }
+            
+            // 添加下个月的日期（填充）
+            const totalCells = daysGrid.children.length;
+            const remainingCells = 42 - totalCells; // 6行 × 7列 = 42个格子
+            
+            for (let day = 1; day <= remainingCells; day++) {
+                const dayOfWeek = (totalCells + day - 1) % 7;
+                const dayElement = createDayElement(day, 'other-month', dayOfWeek);
+                daysGrid.appendChild(dayElement);
+            }
+        }
+
+        function createDayElement(day, monthClass, dayOfWeek) {
+            const dayElement = document.createElement('div');
+            dayElement.className = 'day ' + monthClass;
+            dayElement.textContent = day;
+            
+            // 添加星期几的样式
+            const weekdayClasses = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+            dayElement.classList.add(weekdayClasses[dayOfWeek]);
+            
+            // 添加点击事件
+            if (monthClass === 'current-month') {
+                dayElement.addEventListener('click', () => {
+                    // 移除其他选中状态
+                    document.querySelectorAll('.day.selected').forEach(el => {
+                        el.classList.remove('selected');
+                    });
+                    
+                    // 添加选中状态
+                    dayElement.classList.add('selected');
+                    
+                    // 更新当前日期
+                    currentDate.setDate(day);
+                    updateDateDisplay();
+                });
+            }
+            
+            return dayElement;
+        }
+
+        // 年度日历滑动功能
+        function initAnnualCalendarSwipe() {
+            const monthsGrid = document.querySelector('.months-grid');
+            if (!monthsGrid) return;
+
+            let isDown = false;
+            let startX, startY;
+            let scrollLeft, scrollTop;
+            let startTime;
+            let velocityX = 0, velocityY = 0;
+            const isLandscape = () => window.matchMedia('(orientation: landscape)').matches;
+
+            // 鼠标事件
+            monthsGrid.addEventListener('mousedown', (e) => {
+                isDown = true;
+                monthsGrid.style.cursor = 'grabbing';
+                startX = e.pageX - monthsGrid.offsetLeft;
+                startY = e.pageY - monthsGrid.offsetTop;
+                scrollLeft = monthsGrid.scrollLeft;
+                scrollTop = monthsGrid.scrollTop;
+                startTime = Date.now();
+                velocityX = 0;
+                velocityY = 0;
+                e.preventDefault();
+            });
+
+            monthsGrid.addEventListener('mouseleave', () => {
+                isDown = false;
+                monthsGrid.style.cursor = 'grab';
+            });
+
+            monthsGrid.addEventListener('mouseup', () => {
+                isDown = false;
+                monthsGrid.style.cursor = 'grab';
+                
+                // 添加惯性滚动
+                if (Math.abs(velocityX) > 0.5 || Math.abs(velocityY) > 0.5) {
+                    const deceleration = 0.95;
+                    const animate = () => {
+                        velocityX *= deceleration;
+                        velocityY *= deceleration;
+                        monthsGrid.scrollLeft += velocityX;
+                        if (isLandscape()) {
+                            monthsGrid.scrollTop += velocityY;
+                        }
+                        
+                        if (Math.abs(velocityX) > 0.1 || Math.abs(velocityY) > 0.1) {
+                            requestAnimationFrame(animate);
+                        }
+                    };
+                    animate();
+                }
+            });
+
+            monthsGrid.addEventListener('mousemove', (e) => {
+                if (!isDown) return;
+                e.preventDefault();
+                const x = e.pageX - monthsGrid.offsetLeft;
+                const y = e.pageY - monthsGrid.offsetTop;
+                const walkX = (x - startX) * 2;
+                const walkY = (y - startY) * 2;
+                const currentTime = Date.now();
+                const timeDiff = currentTime - startTime;
+                
+                if (timeDiff > 0) {
+                    velocityX = walkX / timeDiff * 10;
+                    velocityY = walkY / timeDiff * 10;
+                }
+                
+                monthsGrid.scrollLeft = scrollLeft - walkX;
+                if (isLandscape()) {
+                    monthsGrid.scrollTop = scrollTop - walkY;
+                }
+                startTime = currentTime;
+            });
+
+            // 简化的触摸事件处理 - 主要依赖浏览器原生滚动
+            let touchStartX = 0, touchStartY = 0;
+            let isTouching = false;
+
+            monthsGrid.addEventListener('touchstart', (e) => {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                isTouching = true;
+                monthsGrid.style.cursor = 'grabbing';
+            }, { passive: true });
+
+            monthsGrid.addEventListener('touchmove', (e) => {
+                if (!isTouching) return;
+                // 让浏览器处理原生滚动，不干预
+            }, { passive: true });
+
+            monthsGrid.addEventListener('touchend', (e) => {
+                isTouching = false;
+                monthsGrid.style.cursor = 'grab';
+            }, { passive: true });
+
+            // 防止拖拽时选中文本
+            monthsGrid.addEventListener('selectstart', (e) => {
+                e.preventDefault();
+            });
+        }
+
+        // 收入支出分离开关功能
+        function initIncomeExpenseSeparator() {
+            const switchInput = document.getElementById('income-expense-switch');
+            const incomeExpenseTabs = document.querySelector('.income-expense-tabs');
+            
+            // 默认状态：开关关闭，收入支出切换卡片禁用
+            incomeExpenseTabs.classList.add('disabled');
+            
+            switchInput.addEventListener('change', function() {
+                if (this.checked) {
+                    // 开关开启：启用收入支出切换卡片
+                    incomeExpenseTabs.classList.remove('disabled');
+                } else {
+                    // 开关关闭：禁用收入支出切换卡片
+                    incomeExpenseTabs.classList.add('disabled');
+                }
+            });
+        }
+
+        // 在页面加载完成后初始化滑动功能和开关功能
+        document.addEventListener('DOMContentLoaded', () => {
+            initAnnualCalendarSwipe();
+            initIncomeExpenseSeparator();
+        });
+
+
+    </script>
+</body>
 </html>
